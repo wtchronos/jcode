@@ -816,6 +816,7 @@ fn gpu_summary() -> Option<String> {
 pub fn load_agents_md_files_from_dir(working_dir: Option<&Path>) -> (Option<String>, ContextInfo) {
     let mut contents = vec![];
     let mut info = ContextInfo::default();
+    let mut loaded_project_path = None;
 
     // Helper to load a file if it exists, returns (formatted_content, raw_size)
     let load_file = |path: &Path, label: &str| -> Option<(String, usize)> {
@@ -832,17 +833,19 @@ pub fn load_agents_md_files_from_dir(working_dir: Option<&Path>) -> (Option<Stri
 
     // Project-level files (from specified working directory or current directory)
     let project_dir = working_dir.unwrap_or(Path::new("."));
-    if let Some((content, size)) = load_file(
-        &project_dir.join("AGENTS.md"),
-        "Project Instructions (AGENTS.md)",
-    ) {
+    let project_agents_path = project_dir.join("AGENTS.md");
+    if let Some((content, size)) =
+        load_file(&project_agents_path, "Project Instructions (AGENTS.md)")
+    {
         info.has_project_agents_md = true;
         info.project_agents_md_chars = size;
         contents.push(content);
+        loaded_project_path = std::fs::canonicalize(&project_agents_path).ok();
     }
 
     // Home directory files
     if let Ok(global_agents_md) = crate::storage::user_home_path("AGENTS.md")
+        && std::fs::canonicalize(&global_agents_md).ok() != loaded_project_path
         && let Some((content, size)) =
             load_file(&global_agents_md, "Global Instructions (~/AGENTS.md)")
     {

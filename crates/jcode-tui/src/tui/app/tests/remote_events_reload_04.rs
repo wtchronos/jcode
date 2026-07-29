@@ -717,6 +717,43 @@ fn test_provider_guardrail_event_offers_opus_reroute_with_resend_payload() {
     );
 }
 
+#[test]
+fn test_provider_notice_does_not_trigger_guardrail_state_or_reroute() {
+    let mut app = create_test_app();
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let _guard = rt.enter();
+    let mut remote = crate::tui::backend::RemoteConnection::dummy();
+
+    app.is_remote = true;
+    app.remote_provider_name = Some("OpenAI".to_string());
+    app.remote_provider_model = Some("gpt-5.5".to_string());
+    app.remote_model_options = vec![
+        openai_oauth_route("gpt-5.5"),
+        claude_oauth_route("claude-opus-4-8"),
+    ];
+
+    app.handle_server_event(
+        crate::protocol::ServerEvent::ProviderNotice {
+            stop_reason: Some("max_output_tokens".to_string()),
+            message: "The response reached its output limit".to_string(),
+        },
+        &mut remote,
+    );
+
+    assert!(!app.turn_guardrail_stopped);
+    assert!(app.pending_fallback_offer.is_none());
+    assert!(
+        app.display_messages()
+            .iter()
+            .any(|m| m.role == "system" && m.content.contains("[notice]"))
+    );
+    assert!(
+        app.display_messages()
+            .iter()
+            .all(|m| !m.content.contains("[guardrail]"))
+    );
+}
+
 /// The reroute offer must prefer native Anthropic auth over aggregator routes
 /// that also expose claude-opus-4-8.
 #[test]

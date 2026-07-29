@@ -947,6 +947,18 @@ pub enum ServerEvent {
         message: String,
     },
 
+    /// The provider ended the turn without visible output for a reason that is
+    /// not a policy guardrail, such as exhausting the output-token limit.
+    /// Rendered as a neutral system notice and must not arm refusal rerouting.
+    #[serde(rename = "provider_notice")]
+    ProviderNotice {
+        /// Raw provider stop reason, when known.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        stop_reason: Option<String>,
+        /// Human-readable explanation for display.
+        message: String,
+    },
+
     /// Relevant memory was injected into the conversation
     #[serde(rename = "memory_injected")]
     MemoryInjected {

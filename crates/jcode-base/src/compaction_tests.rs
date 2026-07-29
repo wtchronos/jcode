@@ -63,7 +63,10 @@ fn test_restored_messages_do_not_trigger_compaction_immediately() {
     let mut manager = CompactionManager::new().with_budget(1_000);
     let mut messages = Vec::new();
     for i in 0..20 {
-        messages.push(make_text_message(Role::User, &format!("restored {}", i)));
+        messages.push(make_text_message(
+            Role::User,
+            &format!("restored {} {}", i, "r".repeat(200)),
+        ));
     }
     manager.seed_restored_messages(messages.len());
     manager.update_observed_input_tokens(900);
@@ -79,7 +82,10 @@ fn test_new_message_after_restore_reenables_compaction() {
     let mut manager = CompactionManager::new().with_budget(1_000);
     let mut messages = Vec::new();
     for i in 0..20 {
-        messages.push(make_text_message(Role::User, &format!("restored {}", i)));
+        messages.push(make_text_message(
+            Role::User,
+            &format!("restored {} {}", i, "r".repeat(200)),
+        ));
     }
     manager.seed_restored_messages(messages.len());
     manager.update_observed_input_tokens(900);
@@ -132,7 +138,7 @@ fn test_context_usage_prefers_observed_tokens() {
 }
 
 #[test]
-fn test_should_compact_uses_observed_tokens() {
+fn test_should_not_recompact_soft_threshold_when_only_observed_overhead_is_high() {
     let mut manager = CompactionManager::new().with_budget(1_000);
 
     let mut messages = Vec::new();
@@ -142,7 +148,27 @@ fn test_should_compact_uses_observed_tokens() {
     }
     manager.update_observed_input_tokens(850);
 
-    assert!(manager.should_compact_with(&messages));
+    assert!(
+        !manager.should_compact_with(&messages),
+        "fixed prompt overhead above the soft threshold cannot be reduced by compacting tiny active messages"
+    );
+}
+
+#[test]
+fn test_should_recompact_at_critical_threshold_despite_fixed_overhead() {
+    let mut manager = CompactionManager::new().with_budget(1_000);
+
+    let mut messages = Vec::new();
+    for _ in 0..12 {
+        messages.push(make_text_message(Role::User, "x"));
+        manager.notify_message_added();
+    }
+    manager.update_observed_input_tokens(960);
+
+    assert!(
+        manager.should_compact_with(&messages),
+        "critical context pressure must still trigger compaction as a safety valve"
+    );
 }
 
 #[test]
@@ -237,7 +263,10 @@ async fn test_guard_between_80_and_95_starts_background_only() {
     let mut manager = CompactionManager::new().with_budget(1_000);
     let mut messages = Vec::new();
     for i in 0..20 {
-        messages.push(make_text_message(Role::User, &format!("msg {}", i)));
+        messages.push(make_text_message(
+            Role::User,
+            &format!("msg {} {}", i, "m".repeat(160)),
+        ));
         manager.notify_message_added();
     }
     // 85% usage — above 80% threshold but below 95% critical
@@ -275,7 +304,7 @@ async fn test_hard_compact_aborts_inflight_background_compaction() {
     for i in 0..30 {
         messages.push(make_text_message(
             Role::User,
-            &format!("turn {} content {}", i, "z".repeat(60)),
+            &format!("turn {} content {}", i, "z".repeat(160)),
         ));
         manager.notify_message_added();
     }
@@ -342,7 +371,7 @@ async fn test_stale_background_result_discarded_when_context_shrinks() {
     for i in 0..30 {
         messages.push(make_text_message(
             Role::User,
-            &format!("turn {} content {}", i, "q".repeat(60)),
+            &format!("turn {} content {}", i, "q".repeat(160)),
         ));
         manager.notify_message_added();
     }

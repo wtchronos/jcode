@@ -468,6 +468,27 @@ fn test_provider_guardrail_event_roundtrip() -> Result<()> {
 }
 
 #[test]
+fn test_provider_notice_event_roundtrip() -> Result<()> {
+    let event = ServerEvent::ProviderNotice {
+        stop_reason: Some("max_output_tokens".to_string()),
+        message: "The response reached its output limit".to_string(),
+    };
+    let json = encode_event(&event);
+    assert!(json.contains("\"type\":\"provider_notice\""));
+    let decoded = parse_event_json(json.trim())?;
+    let ServerEvent::ProviderNotice {
+        stop_reason,
+        message,
+    } = decoded
+    else {
+        return Err(anyhow!("expected ProviderNotice event"));
+    };
+    assert_eq!(stop_reason.as_deref(), Some("max_output_tokens"));
+    assert_eq!(message, "The response reached its output limit");
+    Ok(())
+}
+
+#[test]
 fn test_message_end_carries_provider_stop_reason() -> Result<()> {
     // `max_tokens` is the only signal that the output budget truncated a turn.
     // Dropping it made a truncated benchmark run look like a clean one, so the

@@ -1,4 +1,28 @@
 use super::*;
+use std::ffi::OsString;
+
+struct EnvVarGuard {
+    key: &'static str,
+    previous: Option<OsString>,
+}
+
+impl EnvVarGuard {
+    fn set_path(key: &'static str, value: &std::path::Path) -> Self {
+        let previous = std::env::var_os(key);
+        crate::env::set_var(key, value);
+        Self { key, previous }
+    }
+}
+
+impl Drop for EnvVarGuard {
+    fn drop(&mut self) {
+        if let Some(previous) = &self.previous {
+            crate::env::set_var(self.key, previous);
+        } else {
+            crate::env::remove_var(self.key);
+        }
+    }
+}
 
 /// Verify the default system prompt does NOT identify as "Claude Code"
 /// It's fine to say "powered by Claude" but not "Claude Code" (Anthropic's product)
@@ -66,9 +90,8 @@ fn test_skill_prompt_integration() {
 #[test]
 fn test_load_agents_md_files_uses_sandboxed_global_files() {
     let _guard = crate::storage::lock_test_env();
-    let prev_home = std::env::var_os("JCODE_HOME");
     let temp = tempfile::TempDir::new().unwrap();
-    crate::env::set_var("JCODE_HOME", temp.path());
+    let _home = EnvVarGuard::set_path("JCODE_HOME", temp.path());
     std::fs::create_dir_all(temp.path().join("external")).unwrap();
 
     std::fs::write(
@@ -86,11 +109,36 @@ fn test_load_agents_md_files_uses_sandboxed_global_files() {
     assert!(!content.contains("~/.AGENTS.md"));
     assert!(content.contains("sandboxed global agents instructions"));
 
-    if let Some(prev_home) = prev_home {
-        crate::env::set_var("JCODE_HOME", prev_home);
-    } else {
-        crate::env::remove_var("JCODE_HOME");
-    }
+}
+
+#[test]
+fn test_load_agents_md_files_deduplicates_project_home_agents_file() {
+    let _guard = crate::storage::lock_test_env();
+    let temp = tempfile::TempDir::new().unwrap();
+    let _home = EnvVarGuard::set_path("JCODE_HOME", temp.path());
+    std::fs::create_dir_all(temp.path().join("external")).unwrap();
+    let shared_agents = temp.path().join("external/AGENTS.md");
+    std::fs::write(&shared_agents, "one instruction source").unwrap();
+
+    let (content, info) = load_agents_md_files_from_dir(shared_agents.parent());
+
+    let content = content.expect("project instructions content");
+    assert_eq!(content.matches("one instruction source").count(), 1);
+    assert_eq!(
+        content
+            .matches("# Project Instructions (AGENTS.md)")
+            .count(),
+        1
+    );
+    assert_eq!(
+        content
+            .matches("# Global Instructions (~/AGENTS.md)")
+            .count(),
+        0
+    );
+    assert!(info.has_project_agents_md);
+    assert!(!info.has_global_agents_md);
+
 }
 
 #[test]

@@ -843,8 +843,19 @@ impl CompactionManager {
         let active = self.active_messages(all_messages);
         match self.mode {
             CompactionMode::Reactive => {
+                // Provider-observed usage includes the system prompt and tool schemas,
+                // which compaction cannot reduce. When only that fixed overhead has
+                // crossed the soft threshold, repeated compaction merely churns the
+                // newest few messages. Keep the critical threshold as a safety valve.
+                let compactable_usage =
+                    self.token_estimate_with(all_messages) as f32 / self.token_budget.max(1) as f32;
+                let threshold = if compactable_usage >= COMPACTION_THRESHOLD {
+                    COMPACTION_THRESHOLD
+                } else {
+                    CRITICAL_THRESHOLD
+                };
                 self.pending_task.is_none()
-                    && self.context_usage_with(all_messages) >= COMPACTION_THRESHOLD
+                    && self.context_usage_with(all_messages) >= threshold
                     && active.len() > RECENT_TURNS_TO_KEEP
             }
             CompactionMode::Proactive => {

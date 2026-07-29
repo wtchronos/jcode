@@ -1092,6 +1092,22 @@ pub(in crate::tui::app) fn handle_server_event(
             app.offer_guardrail_reroute();
             true
         }
+        ServerEvent::ProviderNotice {
+            stop_reason,
+            message,
+        } => {
+            crate::logging::warn(&format!(
+                "PROVIDER_NOTICE_EVENT session={:?} stop_reason={:?}",
+                app.remote_session_id, stop_reason
+            ));
+            let label = stop_reason
+                .as_deref()
+                .filter(|r| !r.trim().is_empty())
+                .unwrap_or("provider notice");
+            app.push_display_message(DisplayMessage::system(format!("[notice] {}", message)));
+            app.set_status_notice(format!("Provider notice: {}", label));
+            true
+        }
         ServerEvent::Done { id } => {
             let mut auto_poked = false;
             let mut completed_current_message = false;

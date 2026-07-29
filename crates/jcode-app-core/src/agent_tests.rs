@@ -1408,6 +1408,31 @@ fn guardrail_notice_for_silent_empty_turn() {
 }
 
 #[test]
+fn truncation_notice_is_not_misreported_as_a_guardrail() {
+    let notice = Agent::provider_guardrail_notice(Some("max_output_tokens"), true, true)
+        .expect("reasoning-only truncation must produce a truthful notice");
+    let lower = notice.to_lowercase();
+    assert!(
+        lower.contains("output limit") || lower.contains("truncat"),
+        "{notice}"
+    );
+    assert!(!lower.contains("guardrail"), "{notice}");
+    assert!(!lower.contains("filter"), "{notice}");
+    assert!(!lower.contains("rephras"), "{notice}");
+}
+
+#[test]
+fn truncation_continuation_prompt_demands_visible_output() {
+    let prompt = Agent::continuation_prompt_for_stop_reason("max_output_tokens");
+    let lower = prompt.to_lowercase();
+    assert!(lower.contains("visible"), "{prompt}");
+    assert!(
+        lower.contains("stop internal reasoning") || lower.contains("next tool call"),
+        "{prompt}"
+    );
+}
+
+#[test]
 fn guardrail_notice_absent_for_normal_turns() {
     // Normal turn with visible text: no notice.
     assert!(Agent::provider_guardrail_notice(Some("end_turn"), false, false).is_none());

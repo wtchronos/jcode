@@ -12,6 +12,7 @@ mod delivery;
 mod editor_selection;
 mod failures;
 mod hero_visual;
+mod hud;
 mod overview_gesture;
 mod page_bands;
 mod progress;

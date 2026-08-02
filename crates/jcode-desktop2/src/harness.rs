@@ -49,6 +49,12 @@ pub enum HarnessUpdate {
     /// tools that write to disk, and kept separate from `Tool` because an edit
     /// earns a permanent transcript card while a call's status line does not.
     Edit(crate::edits::EditCard),
+    /// Provider token/cache telemetry already carried by the harness API.
+    TokenUsage {
+        input: u64,
+        output: u64,
+        cache_read_input: Option<u64>,
+    },
     TurnDone,
     /// A background task this session is waiting on: how far along it is, or
     /// that it finished. Forwarded so a long wait shows a moving bar instead of
@@ -546,6 +552,16 @@ fn run(
                 });
             }
             ApiEvent::MessageAccepted { .. } => send(HarnessUpdate::MessageAccepted),
+            ApiEvent::TokenUsage {
+                input,
+                output,
+                cache_read_input,
+                ..
+            } => send(HarnessUpdate::TokenUsage {
+                input,
+                output,
+                cache_read_input,
+            }),
             ApiEvent::TurnDone { .. } => send(HarnessUpdate::TurnDone),
             ApiEvent::BackgroundProgress {
                 task_id,

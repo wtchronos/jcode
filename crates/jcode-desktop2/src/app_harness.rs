@@ -30,6 +30,7 @@ impl App {
                     self.model.transcript.push_notice(&message);
                     self.model.busy = false;
                     self.model.activity.finish();
+                    self.model.hud.finish_turn();
                     // The notice appears whole, so nothing is being revealed;
                     // leaving a reveal in flight would fade the failure in
                     // behind an animation that has nothing left to animate.
@@ -116,6 +117,14 @@ impl App {
                         .transcript
                         .acknowledge_oldest_pending(std::time::Instant::now());
                 }
+                harness::HarnessUpdate::TokenUsage {
+                    input,
+                    output,
+                    cache_read_input,
+                } => self
+                    .model
+                    .hud
+                    .record_usage(input, output, cache_read_input),
                 // A background task the agent is waiting on. The card lands in
                 // the transcript's live status band rather than in the footnote:
                 // the footnote is one line shared with failures and the model
@@ -154,6 +163,7 @@ impl App {
                 harness::HarnessUpdate::TurnDone => {
                     self.model.busy = false;
                     self.model.activity.finish();
+                    self.model.hud.finish_turn();
                     // The card shows the call in flight; the turn ending means
                     // there is none, and a card left behind would claim work
                     // is still happening.

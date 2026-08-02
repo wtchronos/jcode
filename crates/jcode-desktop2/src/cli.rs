@@ -341,6 +341,11 @@ fn run_e2e(message: &str) -> Result<()> {
                 println!("[e2e] edit: +{} -{}", card.added, card.removed);
                 model.transcript.push_edit(&card);
             }
+            harness::HarnessUpdate::TokenUsage {
+                input,
+                output,
+                cache_read_input,
+            } => model.hud.record_usage(input, output, cache_read_input),
             harness::HarnessUpdate::Sessions(_) => {}
             // Background progress is folded into the model so the captured
             // frame is the one a user would see, bar and all.

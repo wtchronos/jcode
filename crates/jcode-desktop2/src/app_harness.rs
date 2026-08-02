@@ -137,6 +137,7 @@ impl App {
                     done,
                 } => {
                     if done {
+                        self.model.hud.note_completion(&label, &summary);
                         self.model.transcript.clear_progress(&task_id);
                     } else {
                         self.model

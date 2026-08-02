@@ -11,6 +11,7 @@ pub struct Hud {
     cache_read_tokens: u64,
     cache_reported_input_tokens: u64,
     cache_reported: bool,
+    latest_proof: Option<String>,
     last_input: Option<u64>,
     last_output: Option<u64>,
     last_cache_read: Option<u64>,
@@ -25,6 +26,7 @@ impl Default for Hud {
             cache_read_tokens: 0,
             cache_reported_input_tokens: 0,
             cache_reported: false,
+            latest_proof: None,
             last_input: None,
             last_output: None,
             last_cache_read: None,
@@ -94,6 +96,14 @@ impl Hud {
     pub fn has_usage(&self) -> bool {
         self.input_tokens > 0 || self.output_tokens > 0
     }
+
+    pub fn note_completion(&mut self, label: &str, summary: &str) {
+        self.latest_proof = Some(format!("{} · {}", label.trim(), summary.trim()));
+    }
+
+    pub fn latest_proof(&self) -> Option<&str> {
+        self.latest_proof.as_deref()
+    }
 }
 
 fn snapshot_delta(previous: Option<u64>, current: u64) -> u64 {
@@ -162,5 +172,16 @@ mod tests {
         assert_eq!(super::compact_tokens(1_500), "1.5k");
         assert_eq!(super::compact_tokens(42_800), "42.8k");
         assert_eq!(super::compact_tokens(1_250_000), "1.2m");
+    }
+
+    #[test]
+    fn completed_background_work_becomes_the_latest_proof() {
+        let mut hud = Hud::default();
+        hud.note_completion("cargo test", "✓ completed · 27 tests passed");
+
+        assert_eq!(
+            hud.latest_proof(),
+            Some("cargo test · ✓ completed · 27 tests passed")
+        );
     }
 }

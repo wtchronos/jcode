@@ -1100,6 +1100,8 @@ pub fn build_scene(
         draw_strip(scene, model, band, &frame, scale);
     }
 
+    crate::scene_hud::draw_hud(scene, text, model, &frame, scale, std::time::Instant::now());
+
     // The settings gear, in the margin above the column's trailing edge. Faint
     // until the panel is open, when it takes full ink so the mark and the menu
     // it opened read as one thing.

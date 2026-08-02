@@ -122,6 +122,18 @@ pub const PANEL_GAP: f64 = 6.0;
 /// Inset from the panel's edge to a row's text.
 pub const PANEL_TEXT_PAD: f64 = 10.0;
 
+/// Living run strip above the composer. It lives in the existing gap between the
+/// transcript and composer, so it never steals a text row from either surface.
+pub const HUD_STRIP_HEIGHT: f64 = 18.0;
+pub const HUD_STRIP_GAP: f64 = 6.0;
+/// Expanded Living Instrument Panel. Roomy windows get the full panel; narrow
+/// windows keep only the strip so the transcript remains the primary surface.
+pub const HUD_PANEL_WIDTH: f64 = 320.0;
+pub const HUD_PANEL_HEIGHT: f64 = 210.0;
+pub const HUD_PANEL_MIN_WINDOW_WIDTH: f64 = 1100.0;
+pub const HUD_PANEL_RADIUS: f64 = 10.0;
+pub const HUD_PAD: f64 = 12.0;
+
 /// Vertical breathing room between regions.
 pub const SPACE_BEFORE_COMPOSER: f64 = 20.0;
 /// Fraction of the page height the input box is centred on. 0.5 puts the
@@ -199,6 +211,8 @@ pub struct Frame {
     /// Top of the session strip row, when the strip is shown. `None` means
     /// there is no strip and nothing above was reserved for it.
     strip_top: Option<f64>,
+    run_strip: Option<vello::kurbo::Rect>,
+    hud_panel: Option<vello::kurbo::Rect>,
 }
 
 impl Frame {
@@ -227,6 +241,20 @@ impl Frame {
         Self::resolve(size, scale, lines, strip, content_height)
     }
 
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub fn with_hud(
+        size: (u32, u32),
+        scale: f64,
+        lines: usize,
+        strip: bool,
+        content_height: f64,
+        hud_active: bool,
+    ) -> Self {
+        let mut frame = Self::resolve(size, scale, lines, strip, content_height);
+        frame.resolve_hud(hud_active, false);
+        frame
+    }
+
     fn resolve(
         size: (u32, u32),
         scale: f64,
@@ -249,6 +277,8 @@ impl Frame {
                 frame.strip_top = Some(frame.body_top);
                 frame.body_top = (frame.body_top + STRIP_HEIGHT + STRIP_GAP).min(frame.body_bottom);
             }
+            frame.run_strip = None;
+            frame.hud_panel = None;
             frame
         };
         if content_height > 0.0 {
@@ -355,6 +385,44 @@ impl Frame {
             footnote_top,
             footnote_bottom,
             strip_top: None,
+            run_strip: None,
+            hud_panel: None,
+        }
+    }
+
+    pub fn resolve_hud(&mut self, active: bool, expanded: bool) {
+        self.run_strip = None;
+        self.hud_panel = None;
+        if !active {
+            return;
+        }
+
+        let gap = HUD_STRIP_GAP.min(SPACE_BEFORE_COMPOSER / 3.0);
+        let ideal_top = self.body_bottom + gap;
+        let max_top = self.composer_top - gap - HUD_STRIP_HEIGHT;
+        if max_top >= self.body_top {
+            let top = ideal_top.min(max_top);
+            self.body_bottom = self.body_bottom.min(top - gap).max(self.body_top);
+            self.run_strip = Some(vello::kurbo::Rect::new(
+                self.left,
+                top,
+                self.right,
+                top + HUD_STRIP_HEIGHT,
+            ));
+        }
+
+        if expanded && self.width >= HUD_PANEL_MIN_WINDOW_WIDTH {
+            let gutter_left = self.right + HUD_PAD;
+            let gutter_right = self.width - HUD_PAD;
+            let gutter_width = (gutter_right - gutter_left).max(0.0);
+            let panel_width = HUD_PANEL_WIDTH.min(gutter_width);
+            let panel_height = HUD_PANEL_HEIGHT.min((self.body_bottom - self.body_top).max(0.0));
+            if panel_width >= 240.0 && panel_height >= 140.0 {
+                let x0 = gutter_left;
+                let x1 = x0 + panel_width;
+                let y0 = self.body_top;
+                self.hud_panel = Some(vello::kurbo::Rect::new(x0, y0, x1, y0 + panel_height));
+            }
         }
     }
 
@@ -368,6 +436,18 @@ impl Frame {
     /// their own height and drift from the reserved space.
     pub fn strip(&self) -> Option<(f64, f64)> {
         self.strip_top.map(|top| (top, top + STRIP_HEIGHT))
+    }
+
+    pub fn run_strip(&self) -> Option<vello::kurbo::Rect> {
+        self.run_strip
+    }
+
+    pub fn hud_panel(&self) -> Option<vello::kurbo::Rect> {
+        self.hud_panel
+    }
+
+    pub fn hits_run_strip(&self, x: f64, y: f64) -> bool {
+        self.run_strip.is_some_and(|strip| strip.contains((x, y)))
     }
 
     /// Height of one body line.
@@ -606,6 +686,37 @@ mod tests {
                 assert_eq!(without.body_bottom, before.body_bottom);
             }
         }
+    }
+
+    #[test]
+    fn hud_run_strip_never_overlaps_composer_or_transcript() {
+        for width in [360, 520, 900, 1280] {
+            for height in [260, 420, 720] {
+                let frame = Frame::with_hud((width, height), 1.0, 1, false, 120.0, true);
+                let Some(strip) = frame.run_strip() else {
+                    continue;
+                };
+
+                assert!(strip.y0 >= frame.body_bottom);
+                assert!(strip.y1 <= frame.composer_top);
+                assert!(strip.x0 >= frame.left);
+                assert!(strip.x1 <= frame.right);
+            }
+        }
+    }
+
+    #[test]
+    fn hud_panel_only_appears_on_roomy_windows_and_stays_inside_frame() {
+        let narrow = Frame::with_hud((820, 700), 1.0, 1, false, 120.0, true);
+        assert_eq!(narrow.hud_panel(), None);
+
+        let mut roomy = Frame::with_hud((1280, 760), 1.0, 1, false, 120.0, true);
+        roomy.resolve_hud(true, true);
+        let panel = roomy.hud_panel().expect("roomy windows show full HUD");
+        assert!(panel.x0 >= roomy.right + HUD_PAD);
+        assert!(panel.y0 >= roomy.body_top);
+        assert!(panel.x1 <= roomy.width - HUD_PAD);
+        assert!(panel.y1 <= roomy.body_bottom);
     }
 
     #[test]

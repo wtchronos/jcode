@@ -53,6 +53,10 @@ pub const NODES: &[(&str, NodeBuilder)] = &[
     ("session_strip", session_strip),
     ("session_strip_second_group", session_strip_second_group),
     ("mem_readout", mem_readout),
+    ("living_hud_expanded", living_hud_expanded),
+    ("living_hud_collapsed", living_hud_collapsed),
+    ("living_hud_recovery", living_hud_recovery),
+    ("living_hud_narrow", living_hud_narrow),
     ("overview", overview),
     ("overview_opening", overview_opening),
     ("overview_other_session", overview_other_session),
@@ -1010,6 +1014,38 @@ fn working() -> Model {
         ),
         ..attached_empty()
     }
+}
+
+fn living_hud_base() -> Model {
+    let mut model = background_progress();
+    model.hud.record_usage(42_800, 3_100, Some(38_948));
+    model
+        .hud
+        .note_completion("cargo test", "✓ completed · 27 tests passed");
+    model
+}
+
+fn living_hud_expanded() -> Model {
+    living_hud_base()
+}
+
+fn living_hud_collapsed() -> Model {
+    let mut model = living_hud_base();
+    model.hud.toggle();
+    model
+}
+
+fn living_hud_recovery() -> Model {
+    let mut model = living_hud_base();
+    model.busy = false;
+    model.failure = Some("provider returned empty response; retry available".into());
+    model.status = "recovering from provider error".into();
+    model
+}
+
+fn living_hud_narrow() -> Model {
+    // Same model as expanded; the capture harness supplies the narrow window size.
+    living_hud_base()
 }
 
 /// The first frame after Enter: the message is on the page and out the socket,

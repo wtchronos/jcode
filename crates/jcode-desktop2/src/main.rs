@@ -21,6 +21,7 @@ mod edits;
 mod frame_meter;
 mod harness;
 mod hints;
+mod hud;
 mod input;
 mod keymap;
 mod layout;
@@ -319,6 +320,8 @@ pub struct Model {
     /// `None` until then, so the caption appears rather than showing a guess
     /// that could be wrong.
     pub model: Option<ModelId>,
+    /// Live run telemetry shared by the composer strip and expanded panel.
+    pub hud: hud::Hud,
     /// The boot-up reveal: black paper, the donut growing in, then the rest of
     /// the window. Default is *finished*, so captures and tests see the settled
     /// frame; the real window replaces it on the first paint.
@@ -403,6 +406,7 @@ impl Default for Model {
             peeks: overview::Peeks::default(),
             working_dir: None,
             model: None,
+            hud: hud::Hud::default(),
             boot: boot::Boot::default(),
             progress_clock: None,
             settings,

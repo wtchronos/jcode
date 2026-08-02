@@ -128,6 +128,7 @@ fn connecting() -> Model {
         hint: 0,
         // Detached: nothing has told us the model yet, so the caption is absent.
         model: None,
+        hud: crate::hud::Hud::default(),
         strip: crate::strip::Strip::default(),
         // Captures are still frames, so nothing is mid-reveal: a default
         // stream draws every glyph.
@@ -252,6 +253,7 @@ fn attached_empty() -> Model {
         // than whatever the clock happened to pick.
         hint: 0,
         model: Some(fixed_model()),
+        hud: crate::hud::Hud::default(),
         strip: crate::strip::Strip::default(),
         // Captures are still frames, so nothing is mid-reveal: a default
         // stream draws every glyph.

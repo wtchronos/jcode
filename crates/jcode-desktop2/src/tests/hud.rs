@@ -44,23 +44,33 @@ fn token_usage_reaches_the_hud_and_turn_done_resets_only_the_snapshot() {
 }
 
 #[test]
-fn pressing_the_run_strip_toggles_the_expanded_hud() {
+fn the_hud_panel_is_visible_while_idle() {
+    let mut app = App::default();
+    app.model.donut = None;
+    app.model.working_dir = Some("/home/j/jcode".into());
+    app.frame = App::frame_for_model((1280, 760), 1.0, &app.model);
+
+    assert!(app.frame.hud_panel().is_some());
+}
+
+#[test]
+fn pressing_the_run_strip_does_not_hide_the_hud() {
     let mut app = App::default();
     app.model.donut = None;
     app.model.working_dir = Some("/home/j/jcode".into());
     app.model.hud.record_usage(42_800, 3_100, Some(38_948));
     app.frame = App::frame_for_model((1280, 760), 1.0, &app.model);
     let strip = app.frame.run_strip().expect("run strip should be visible");
-    assert!(app.model.hud.expanded());
+    assert!(app.frame.hud_panel().is_some());
 
     app.pointer = (strip.center().x, strip.center().y);
     app.on_pointer_pressed();
 
-    assert!(!app.model.hud.expanded());
+    assert!(app.frame.hud_panel().is_some());
 }
 
 #[test]
-fn clicking_outside_the_run_strip_does_not_toggle_hud() {
+fn clicking_outside_the_run_strip_keeps_the_hud_visible() {
     let mut app = App::default();
     app.model.donut = None;
     app.model.working_dir = Some("/home/j/jcode".into());
@@ -70,15 +80,14 @@ fn clicking_outside_the_run_strip_does_not_toggle_hud() {
     app.pointer = (app.frame.left + 4.0, app.frame.body_top + 4.0);
     app.on_pointer_pressed();
 
-    assert!(app.model.hud.expanded());
+    assert!(app.frame.hud_panel().is_some());
     assert!(app.model.selection.is_none());
 }
 
 #[test]
-fn living_hud_capture_nodes_render_collapsed_expanded_recovery_and_narrow_states() {
+fn living_hud_capture_nodes_render_persistent_recovery_and_narrow_states() {
     for node in [
         "living_hud_expanded",
-        "living_hud_collapsed",
         "living_hud_recovery",
         "living_hud_narrow",
     ] {

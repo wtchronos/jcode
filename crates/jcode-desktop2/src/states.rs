@@ -54,7 +54,6 @@ pub const NODES: &[(&str, NodeBuilder)] = &[
     ("session_strip_second_group", session_strip_second_group),
     ("mem_readout", mem_readout),
     ("living_hud_expanded", living_hud_expanded),
-    ("living_hud_collapsed", living_hud_collapsed),
     ("living_hud_recovery", living_hud_recovery),
     ("living_hud_narrow", living_hud_narrow),
     ("overview", overview),
@@ -1056,12 +1055,6 @@ fn living_hud_base() -> Model {
 
 fn living_hud_expanded() -> Model {
     living_hud_base()
-}
-
-fn living_hud_collapsed() -> Model {
-    let mut model = living_hud_base();
-    model.hud.toggle();
-    model
 }
 
 fn living_hud_recovery() -> Model {

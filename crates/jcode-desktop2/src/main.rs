@@ -675,10 +675,10 @@ impl App {
         );
         let content = crate::viewport::Viewport::new(laid, 0.0, 0.0).content_height;
         let mut frame = layout::Frame::with_content(size, scale, lines, strip, content);
-        frame.resolve_hud(
-            model.hud.has_usage() || model.busy || model.failure.is_some(),
-            model.hud.expanded(),
-        );
+        // The HUD is persistent workspace chrome. It remains visible while
+        // idle so its session map and latest proof are discoverable without a
+        // transient run-state gate or a hidden click target.
+        frame.resolve_hud(true, true);
         frame
     }
 
@@ -729,23 +729,6 @@ impl App {
         // at a press: a menu that the click behind it also acted on is a menu
         // you cannot safely dismiss.
         if self.settings_press(x, y) {
-            return;
-        }
-        if self.frame.hits_run_strip(x, y) {
-            self.model.hud.toggle();
-            self.frame = Self::frame_for_model_with(
-                {
-                    let geometry = self.geometry.sanitized();
-                    (
-                        geometry.width.round() as u32,
-                        geometry.height.round() as u32,
-                    )
-                },
-                self.effective_scale(),
-                &self.model,
-                &mut self.painter,
-            );
-            self.request_redraw();
             return;
         }
         let hit = self.composer_offset_at(x, y);
@@ -901,7 +884,6 @@ impl App {
         let panel_rows = crate::settings::ROWS.len();
         let wanted = if self.frame.hits_gear(x, y)
             || (self.model.panel.is_open() && self.frame.panel_row_at(panel_rows, x, y).is_some())
-            || self.frame.hits_run_strip(x, y)
         {
             // A pointing hand over the gear and its rows, so the one clickable
             // chrome in the window says so before it is clicked.

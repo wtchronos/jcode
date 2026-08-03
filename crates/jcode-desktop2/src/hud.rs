@@ -5,7 +5,6 @@
 /// never double-count a late/final report.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Hud {
-    expanded: bool,
     input_tokens: u64,
     output_tokens: u64,
     cache_read_tokens: u64,
@@ -45,7 +44,6 @@ impl<'a> SessionTopology<'a> {
 impl Default for Hud {
     fn default() -> Self {
         Self {
-            expanded: true,
             input_tokens: 0,
             output_tokens: 0,
             cache_read_tokens: 0,
@@ -85,14 +83,6 @@ impl Hud {
         self.last_input = None;
         self.last_output = None;
         self.last_cache_read = None;
-    }
-
-    pub fn toggle(&mut self) {
-        self.expanded = !self.expanded;
-    }
-
-    pub fn expanded(&self) -> bool {
-        self.expanded
     }
 
     pub fn input_tokens(&self) -> u64 {
@@ -209,19 +199,6 @@ mod tests {
 
         hud.record_usage(100, 10, Some(10_000));
         assert_eq!(hud.cache_hit_pct(), Some(100));
-    }
-
-    #[test]
-    fn toggling_the_panel_preserves_telemetry() {
-        let mut hud = Hud::default();
-        hud.record_usage(42_800, 3_100, Some(38_948));
-        assert!(hud.expanded());
-
-        hud.toggle();
-        assert!(!hud.expanded());
-        assert_eq!(hud.input_tokens(), 42_800);
-        assert_eq!(hud.output_tokens(), 3_100);
-        assert_eq!(hud.cache_hit_pct(), Some(91));
     }
 
     #[test]

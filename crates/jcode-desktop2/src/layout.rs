@@ -457,10 +457,6 @@ impl Frame {
         self.hud_panel
     }
 
-    pub fn hits_run_strip(&self, x: f64, y: f64) -> bool {
-        self.run_strip.is_some_and(|strip| strip.contains((x, y)))
-    }
-
     /// Height of one body line.
     pub fn body_line_height(&self) -> f64 {
         f64::from(BODY_SIZE) * BODY_LEADING

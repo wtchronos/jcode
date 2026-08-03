@@ -137,7 +137,7 @@ fn draw_panel(
         if model.failure.is_some() {
             theme.removed
         } else if model.busy {
-            theme.added
+            theme.text
         } else {
             theme.muted
         },
@@ -164,7 +164,7 @@ fn draw_panel(
         if model.failure.is_some() {
             theme.removed
         } else {
-            theme.added
+            theme.text
         },
         scale,
         progress_pct(model).unwrap_or(if model.busy { 18 } else { 100 }),
@@ -283,7 +283,7 @@ fn draw_panel(
     let (event_kind, event, event_color) = if let Some(failure) = model.failure.as_deref() {
         ("RECOVERY", failure, theme.removed)
     } else if let Some(proof) = model.hud.latest_proof() {
-        ("LATEST PROOF", proof, theme.added)
+        ("LATEST PROOF", proof, theme.text)
     } else {
         ("LIVE SIGNAL", "waiting for proof", theme.muted)
     };
@@ -426,7 +426,7 @@ fn draw_session_map(
             scene.stroke(
                 &vello::kurbo::Stroke::new(1.5 / scale),
                 Affine::scale(scale),
-                theme.added.with_alpha(0.45),
+                theme.text.with_alpha(0.45),
                 None,
                 &Circle::new(point, node_radius + 4.0),
             );
@@ -434,7 +434,7 @@ fn draw_session_map(
         scene.fill(
             Fill::NonZero,
             Affine::scale(scale),
-            if entry.busy { theme.added } else { theme.muted },
+            if entry.busy { theme.text } else { theme.muted },
             None,
             &Circle::new(point, node_radius),
         );

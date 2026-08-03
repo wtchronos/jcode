@@ -397,6 +397,17 @@ impl Frame {
             return;
         }
 
+        if expanded && self.width >= HUD_PANEL_MIN_WINDOW_WIDTH {
+            let panel_x1 = self.width - HUD_PAD;
+            let panel_x0 = panel_x1 - HUD_PANEL_WIDTH;
+            let content_right = panel_x0 - HUD_PAD;
+            let column = self
+                .column()
+                .min((content_right - HUD_PAD * 2.0).max(120.0));
+            self.left = ((content_right - column) * 0.5).max(HUD_PAD);
+            self.right = self.left + column;
+        }
+
         let gap = HUD_STRIP_GAP.min(SPACE_BEFORE_COMPOSER / 3.0);
         let ideal_top = self.body_bottom + gap;
         let max_top = self.composer_top - gap - HUD_STRIP_HEIGHT;
@@ -418,8 +429,8 @@ impl Frame {
             let panel_width = HUD_PANEL_WIDTH.min(gutter_width);
             let panel_height = HUD_PANEL_HEIGHT.min((self.body_bottom - self.body_top).max(0.0));
             if panel_width >= 240.0 && panel_height >= 140.0 {
-                let x0 = gutter_left;
-                let x1 = x0 + panel_width;
+                let x1 = gutter_right;
+                let x0 = x1 - panel_width;
                 let y0 = self.body_top;
                 self.hud_panel = Some(vello::kurbo::Rect::new(x0, y0, x1, y0 + panel_height));
             }
@@ -717,6 +728,21 @@ mod tests {
         assert!(panel.y0 >= roomy.body_top);
         assert!(panel.x1 <= roomy.width - HUD_PAD);
         assert!(panel.y1 <= roomy.body_bottom);
+    }
+
+    #[test]
+    fn expanded_hud_reserves_a_right_gutter_at_the_capture_width() {
+        let mut frame = Frame::with_hud((1100, 720), 1.0, 1, false, 120.0, true);
+        let centred_left = frame.left;
+        frame.resolve_hud(true, true);
+
+        let panel = frame
+            .hud_panel()
+            .expect("the expanded capture state must visibly render its panel");
+        assert!(frame.left < centred_left);
+        assert!(panel.x0 >= frame.right + HUD_PAD);
+        assert!(panel.width() >= 280.0);
+        assert!(panel.x1 <= frame.width - HUD_PAD);
     }
 
     #[test]

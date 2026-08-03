@@ -53,14 +53,10 @@ fn draw_run_strip(
         &pulse,
     );
 
-    let phase = if model.busy {
-        model.activity.label().to_string()
-    } else if model.failure.is_some() {
-        "recovery".into()
-    } else {
-        "ready".into()
-    };
-    let progress = progress_summary(model);
+    let phase = phase(model).to_uppercase();
+    let progress = progress_pct(model)
+        .map(|pct| format!("{pct}%"))
+        .unwrap_or_else(|| "LIVE".into());
     let cache = cache_summary(model);
     let elapsed = model
         .activity
@@ -72,8 +68,8 @@ fn draw_run_strip(
         phase,
         model.activity.label(),
         progress,
-        cache,
-        elapsed
+        token_summary(model),
+        format!("KV {cache} · {elapsed}")
     );
     text.draw_paragraph_scaled(
         scene,
@@ -115,139 +111,228 @@ fn draw_panel(
     );
 
     let x = panel.x0 + layout::HUD_PAD;
-    let mut y = panel.y0 + layout::HUD_PAD;
+    let inner_width = panel.width() - layout::HUD_PAD * 2.0;
+    let header = model
+        .model
+        .as_ref()
+        .and_then(crate::ModelId::caption)
+        .unwrap_or_else(|| "Jcode".into());
     label(
         text,
         scene,
-        "Living Instrument Panel",
+        &header,
         x,
-        y,
-        panel.width(),
+        panel.y0 + 10.0,
+        inner_width,
         theme.text,
         scale,
     );
-    y += 24.0;
-
-    draw_arc(
+    caption(
+        text,
         scene,
-        panel,
+        &phase(model).to_uppercase(),
+        panel.x1 - 72.0,
+        panel.y0 + 12.0,
+        60.0,
+        if model.failure.is_some() {
+            theme.removed
+        } else if model.busy {
+            theme.added
+        } else {
+            theme.muted
+        },
+        scale,
+    );
+
+    let rule = BezPath::from_vec(vec![
+        vello::kurbo::PathEl::MoveTo((x, panel.y0 + 34.0).into()),
+        vello::kurbo::PathEl::LineTo((panel.x1 - layout::HUD_PAD, panel.y0 + 34.0).into()),
+    ]);
+    scene.stroke(
+        &vello::kurbo::Stroke::new(1.0 / scale),
+        Affine::scale(scale),
+        theme.rule,
+        None,
+        &rule,
+    );
+
+    let gauge_center = (x + 38.0, panel.y0 + 78.0);
+    draw_gauge(
+        scene,
+        gauge_center,
+        theme.rule,
+        if model.failure.is_some() {
+            theme.removed
+        } else {
+            theme.added
+        },
+        scale,
+        progress_pct(model).unwrap_or(if model.busy { 18 } else { 100 }),
+    );
+    label(
+        text,
+        scene,
+        &progress_pct(model)
+            .map(|pct| format!("{pct}%"))
+            .unwrap_or_else(|| "LIVE".into()),
+        gauge_center.0 - 21.0,
+        gauge_center.1 - 10.0,
+        44.0,
+        theme.text,
+        scale,
+    );
+    caption(
+        text,
+        scene,
+        phase(model),
+        gauge_center.0 - 21.0,
+        gauge_center.1 + 9.0,
+        44.0,
+        theme.faint,
+        scale,
+    );
+
+    let detail_x = x + 88.0;
+    caption(
+        text,
+        scene,
+        "CURRENT ACTIVITY",
+        detail_x,
+        panel.y0 + 48.0,
+        inner_width - 88.0,
+        theme.faint,
+        scale,
+    );
+    label(
+        text,
+        scene,
+        &crate::scene::elide(model.activity.label(), 22),
+        detail_x,
+        panel.y0 + 63.0,
+        inner_width - 88.0,
+        theme.text,
+        scale,
+    );
+    let elapsed = model.activity.elapsed(now).as_secs();
+    caption(
+        text,
+        scene,
+        &format!(
+            "{} · {}",
+            format_elapsed(elapsed),
+            crate::scene::elide(&progress_summary(model), 22)
+        ),
+        detail_x,
+        panel.y0 + 84.0,
+        inner_width - 88.0,
         theme.muted,
         scale,
-        model.busy || model.failure.is_some(),
     );
-    row(
+
+    let telemetry_y = panel.y0 + 119.0;
+    telemetry(
         text,
         scene,
-        "phase",
-        phase(model),
-        x,
-        y,
-        panel.width(),
-        theme,
-        scale,
-    );
-    y += 20.0;
-    row(
-        text,
-        scene,
-        "activity",
-        model.activity.label(),
-        x,
-        y,
-        panel.width(),
-        theme,
-        scale,
-    );
-    y += 20.0;
-    row(
-        text,
-        scene,
-        "progress",
-        &progress_summary(model),
-        x,
-        y,
-        panel.width(),
-        theme,
-        scale,
-    );
-    y += 20.0;
-    row(
-        text,
-        scene,
-        "tokens",
+        "TOKENS",
         &token_summary(model),
         x,
-        y,
-        panel.width(),
+        telemetry_y,
+        94.0,
         theme,
         scale,
     );
-    y += 20.0;
-    row(
+    telemetry(
         text,
         scene,
-        "cache",
+        "KV CACHE",
         &cache_summary(model),
-        x,
-        y,
-        panel.width(),
+        x + 100.0,
+        telemetry_y,
+        76.0,
         theme,
         scale,
     );
-    y += 20.0;
-    let elapsed = model.activity.elapsed(now).as_secs();
-    row(
+    telemetry(
         text,
         scene,
-        "elapsed",
-        &format_elapsed(elapsed),
-        x,
-        y,
-        panel.width(),
+        "MEMORY",
+        &model
+            .mem
+            .as_ref()
+            .map(crate::mem::Readout::caption)
+            .unwrap_or_else(|| "sampling".into()),
+        x + 182.0,
+        telemetry_y,
+        inner_width - 182.0,
         theme,
         scale,
     );
-    y += 20.0;
-    if let Some(proof) = model.hud.latest_proof() {
-        row(
-            text,
-            scene,
-            "proof",
-            proof,
-            x,
-            y,
-            panel.width(),
-            theme,
-            scale,
-        );
-        y += 20.0;
-    }
-    if let Some(failure) = model.failure.as_deref() {
-        row(
-            text,
-            scene,
-            "recovery",
-            failure,
-            x,
-            y,
-            panel.width(),
-            theme,
-            scale,
-        );
-    }
+
+    let event_y = panel.y0 + 174.0;
+    let (event_kind, event, event_color) = if let Some(failure) = model.failure.as_deref() {
+        ("RECOVERY", failure, theme.removed)
+    } else if let Some(proof) = model.hud.latest_proof() {
+        ("LATEST PROOF", proof, theme.added)
+    } else {
+        ("LIVE SIGNAL", "waiting for proof", theme.muted)
+    };
+    caption(
+        text,
+        scene,
+        event_kind,
+        x,
+        event_y,
+        86.0,
+        event_color,
+        scale,
+    );
+    caption(
+        text,
+        scene,
+        &crate::scene::elide(event, 31),
+        x + 90.0,
+        event_y,
+        inner_width - 90.0,
+        theme.muted,
+        scale,
+    );
 }
 
-fn draw_arc(scene: &mut Scene, panel: Rect, color: Color, scale: f64, hot: bool) {
-    let cx = panel.x1 - 35.0;
-    let cy = panel.y0 + 35.0;
-    let mut path = BezPath::new();
-    path.move_to((cx, cy - 18.0));
-    path.quad_to((cx + 20.0, cy - 18.0), (cx + 18.0, cy + 5.0));
-    path.quad_to((cx + 16.0, cy + 20.0), (cx - 6.0, cy + 18.0));
+fn draw_gauge(
+    scene: &mut Scene,
+    center: (f64, f64),
+    track: Color,
+    signal: Color,
+    scale: f64,
+    progress: u8,
+) {
     scene.stroke(
-        &vello::kurbo::Stroke::new(if hot { 2.0 } else { 1.0 }),
+        &vello::kurbo::Stroke::new(2.0),
         Affine::scale(scale),
-        color,
+        track,
+        None,
+        &Circle::new(center, 30.0),
+    );
+    let sweep = f64::from(progress.min(100)) / 100.0;
+    let cx = center.0;
+    let cy = center.1;
+    let end = std::f64::consts::TAU * sweep - std::f64::consts::FRAC_PI_2;
+    let mut path = BezPath::new();
+    let steps = 32;
+    for step in 0..=steps {
+        let angle = -std::f64::consts::FRAC_PI_2
+            + (end + std::f64::consts::FRAC_PI_2) * f64::from(step) / f64::from(steps);
+        let point = (cx + angle.cos() * 30.0, cy + angle.sin() * 30.0);
+        if step == 0 {
+            path.move_to(point);
+        } else {
+            path.line_to(point);
+        }
+    }
+    scene.stroke(
+        &vello::kurbo::Stroke::new(3.0),
+        Affine::scale(scale),
+        signal,
         None,
         &path,
     );
@@ -277,7 +362,33 @@ fn label(
     );
 }
 
-fn row(
+fn caption(
+    text: &mut text::TextSystem,
+    scene: &mut Scene,
+    value: &str,
+    x: f64,
+    y: f64,
+    width: f64,
+    color: Color,
+    scale: f64,
+) {
+    text.draw_paragraph_scaled(
+        scene,
+        value,
+        (x, y),
+        width.max(1.0) as f32,
+        ParagraphStyle {
+            font_size: layout::CAPTION_SIZE,
+            color,
+            letter_spacing_em: 0.06,
+            ..Default::default()
+        },
+        scale,
+    );
+}
+
+#[allow(clippy::too_many_arguments)]
+fn telemetry(
     text: &mut text::TextSystem,
     scene: &mut Scene,
     key: &str,
@@ -288,18 +399,15 @@ fn row(
     theme: &crate::theme::Theme,
     scale: f64,
 ) {
-    let line = format!("{key}: {}", crate::scene::elide(value, 38));
-    text.draw_paragraph_scaled(
+    caption(text, scene, key, x, y, width, theme.faint, scale);
+    caption(
+        text,
         scene,
-        &line,
-        (x, y),
-        (width - layout::HUD_PAD * 2.0).max(1.0) as f32,
-        ParagraphStyle {
-            font_size: layout::CAPTION_SIZE,
-            color: theme.muted,
-            letter_spacing_em: 0.06,
-            ..Default::default()
-        },
+        &crate::scene::elide(value, (width / 6.5).max(4.0) as usize),
+        x,
+        y + 17.0,
+        width,
+        theme.text,
         scale,
     );
 }
@@ -329,6 +437,18 @@ fn progress_summary(model: &Model) -> String {
                 "idle".into()
             }
         })
+}
+
+fn progress_pct(model: &Model) -> Option<u8> {
+    let source = progress_summary(model);
+    source
+        .split_whitespace()
+        .find_map(|part| {
+            part.trim_matches(|ch: char| !ch.is_ascii_digit() && ch != '%')
+                .strip_suffix('%')
+        })
+        .and_then(|value| value.parse::<u8>().ok())
+        .filter(|value| *value <= 100)
 }
 
 fn token_summary(model: &Model) -> String {

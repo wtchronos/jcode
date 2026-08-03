@@ -45,9 +45,8 @@ impl Hud {
 
         if let Some(cache_read) = cache_read_input {
             self.cache_reported = true;
-            self.cache_reported_input_tokens = self
-                .cache_reported_input_tokens
-                .saturating_add(input_delta);
+            self.cache_reported_input_tokens =
+                self.cache_reported_input_tokens.saturating_add(input_delta);
             self.cache_read_tokens = self
                 .cache_read_tokens
                 .saturating_add(snapshot_delta(self.last_cache_read, cache_read));

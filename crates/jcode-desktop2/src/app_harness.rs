@@ -121,10 +121,7 @@ impl App {
                     input,
                     output,
                     cache_read_input,
-                } => self
-                    .model
-                    .hud
-                    .record_usage(input, output, cache_read_input),
+                } => self.model.hud.record_usage(input, output, cache_read_input),
                 // A background task the agent is waiting on. The card lands in
                 // the transcript's live status band rather than in the footnote:
                 // the footnote is one line shared with failures and the model

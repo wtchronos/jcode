@@ -129,7 +129,7 @@ pub const HUD_STRIP_GAP: f64 = 6.0;
 /// Expanded Living Instrument Panel. Roomy windows get the full panel; narrow
 /// windows keep only the strip so the transcript remains the primary surface.
 pub const HUD_PANEL_WIDTH: f64 = 320.0;
-pub const HUD_PANEL_HEIGHT: f64 = 210.0;
+pub const HUD_PANEL_HEIGHT: f64 = 250.0;
 pub const HUD_PANEL_MIN_WINDOW_WIDTH: f64 = 1100.0;
 pub const HUD_PANEL_RADIUS: f64 = 10.0;
 pub const HUD_PAD: f64 = 12.0;

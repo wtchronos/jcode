@@ -233,11 +233,22 @@ fn draw_panel(
     telemetry(
         text,
         scene,
-        "TOKENS",
-        &token_summary(model),
+        "INPUT",
+        &hud::compact_tokens(model.hud.input_tokens()),
         x,
         telemetry_y,
-        94.0,
+        62.0,
+        theme,
+        scale,
+    );
+    telemetry(
+        text,
+        scene,
+        "OUTPUT",
+        &hud::compact_tokens(model.hud.output_tokens()),
+        x + 68.0,
+        telemetry_y,
+        62.0,
         theme,
         scale,
     );
@@ -246,9 +257,9 @@ fn draw_panel(
         scene,
         "KV CACHE",
         &cache_summary(model),
-        x + 100.0,
+        x + 136.0,
         telemetry_y,
-        76.0,
+        72.0,
         theme,
         scale,
     );
@@ -260,15 +271,15 @@ fn draw_panel(
             .mem
             .as_ref()
             .map(crate::mem::Readout::caption)
-            .unwrap_or_else(|| "sampling".into()),
-        x + 182.0,
+            .unwrap_or_else(|| "--".into()),
+        x + 214.0,
         telemetry_y,
-        inner_width - 182.0,
+        inner_width - 214.0,
         theme,
         scale,
     );
 
-    let event_y = panel.y0 + 174.0;
+    let event_y = panel.y0 + 158.0;
     let (event_kind, event, event_color) = if let Some(failure) = model.failure.as_deref() {
         ("RECOVERY", failure, theme.removed)
     } else if let Some(proof) = model.hud.latest_proof() {
@@ -289,13 +300,158 @@ fn draw_panel(
     caption(
         text,
         scene,
-        &crate::scene::elide(event, 31),
+        &crate::scene::elide(event, 24),
         x + 90.0,
         event_y,
         inner_width - 90.0,
         theme.muted,
         scale,
     );
+
+    draw_session_map(
+        scene,
+        text,
+        model,
+        Rect::new(
+            x,
+            panel.y0 + 184.0,
+            panel.x1 - layout::HUD_PAD,
+            panel.y0 + 244.0,
+        ),
+        scale,
+    );
+}
+
+fn draw_session_map(
+    scene: &mut Scene,
+    text: &mut text::TextSystem,
+    model: &Model,
+    bounds: Rect,
+    scale: f64,
+) {
+    let theme = &model.theme;
+    let topology = hud::SessionTopology::from_strip(&model.strip);
+    let summary = format!(
+        "{} sessions · {} live · {} groups",
+        topology.sessions, topology.busy, topology.groups
+    );
+    caption(
+        text,
+        scene,
+        "SESSION MAP",
+        bounds.x0,
+        bounds.y0,
+        92.0,
+        theme.faint,
+        scale,
+    );
+    caption(
+        text,
+        scene,
+        &summary,
+        bounds.x0 + 96.0,
+        bounds.y0,
+        bounds.width() - 96.0,
+        theme.muted,
+        scale,
+    );
+
+    let entries = model.strip.entries();
+    if entries.is_empty() {
+        caption(
+            text,
+            scene,
+            "waiting for daemon session facts",
+            bounds.x0,
+            bounds.y0 + 30.0,
+            bounds.width(),
+            theme.muted,
+            scale,
+        );
+        return;
+    }
+
+    let center = (bounds.x0 + bounds.width() * 0.52, bounds.y0 + 41.0);
+    let radius = (bounds.width() * 0.31).min(86.0);
+    let focused = model.strip.focused_session();
+    let visible = entries.len().min(8);
+    let focused_entry = entries
+        .iter()
+        .find(|entry| focused == Some(entry.session_id.as_str()));
+    let orbit: Vec<_> = entries
+        .iter()
+        .filter(|entry| focused != Some(entry.session_id.as_str()))
+        .take(visible.saturating_sub(1))
+        .collect();
+    let mut points = Vec::with_capacity(visible);
+    if let Some(entry) = focused_entry {
+        points.push((center, entry));
+    }
+    for (index, entry) in orbit.iter().enumerate() {
+        let angle = -std::f64::consts::FRAC_PI_2
+            + std::f64::consts::TAU * index as f64 / orbit.len().max(1) as f64;
+        let point = (
+            center.0 + angle.cos() * radius,
+            center.1 + angle.sin() * 17.0,
+        );
+        points.push((point, *entry));
+    }
+
+    for (point, entry) in &points {
+        if focused == Some(entry.session_id.as_str()) {
+            continue;
+        }
+        let mut link = BezPath::new();
+        link.move_to(center);
+        link.line_to(*point);
+        scene.stroke(
+            &vello::kurbo::Stroke::new(1.0 / scale),
+            Affine::scale(scale),
+            theme.rule,
+            None,
+            &link,
+        );
+    }
+
+    for (point, entry) in points {
+        let is_focused = focused == Some(entry.session_id.as_str());
+        let node_radius = if is_focused {
+            7.0
+        } else if entry.busy {
+            5.0
+        } else {
+            4.0
+        };
+        if is_focused {
+            scene.stroke(
+                &vello::kurbo::Stroke::new(1.5 / scale),
+                Affine::scale(scale),
+                theme.added.with_alpha(0.45),
+                None,
+                &Circle::new(point, node_radius + 4.0),
+            );
+        }
+        scene.fill(
+            Fill::NonZero,
+            Affine::scale(scale),
+            if entry.busy { theme.added } else { theme.muted },
+            None,
+            &Circle::new(point, node_radius),
+        );
+    }
+
+    if entries.len() > visible {
+        caption(
+            text,
+            scene,
+            &format!("+{}", entries.len() - visible),
+            bounds.x1 - 24.0,
+            bounds.y0 + 48.0,
+            24.0,
+            theme.muted,
+            scale,
+        );
+    }
 }
 
 fn draw_gauge(

@@ -17,6 +17,31 @@ pub struct Hud {
     last_cache_read: Option<u64>,
 }
 
+/// Honest, presentation-ready facts for the HUD's side diagram.
+///
+/// Desktop2 calls these sessions rather than agents because the daemon exposes
+/// session identity, workspace grouping, and busy state today. The diagram can
+/// become agent-aware later without pretending that inference already exists.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SessionTopology<'a> {
+    pub sessions: usize,
+    pub busy: usize,
+    pub groups: usize,
+    pub focused: Option<&'a str>,
+}
+
+impl<'a> SessionTopology<'a> {
+    pub fn from_strip(strip: &'a crate::strip::Strip) -> Self {
+        let entries = strip.entries();
+        Self {
+            sessions: entries.len(),
+            busy: entries.iter().filter(|entry| entry.busy).count(),
+            groups: strip.groups().len(),
+            focused: strip.focused_session(),
+        }
+    }
+}
+
 impl Default for Hud {
     fn default() -> Self {
         Self {
@@ -126,6 +151,40 @@ pub fn compact_tokens(tokens: u64) -> String {
 #[cfg(test)]
 mod tests {
     use super::Hud;
+
+    #[test]
+    fn session_topology_counts_real_groups_and_busy_sessions() {
+        let strip = crate::strip::Strip::build(
+            vec![
+                crate::strip::Entry {
+                    session_id: "lead".into(),
+                    working_dir: Some("/work/jcode".into()),
+                    busy: true,
+                    weight: 10.0,
+                },
+                crate::strip::Entry {
+                    session_id: "review".into(),
+                    working_dir: Some("/work/jcode".into()),
+                    busy: false,
+                    weight: 4.0,
+                },
+                crate::strip::Entry {
+                    session_id: "tests".into(),
+                    working_dir: Some("/work/harness".into()),
+                    busy: true,
+                    weight: 6.0,
+                },
+            ],
+            Some("lead"),
+        );
+
+        let topology = super::SessionTopology::from_strip(&strip);
+
+        assert_eq!(topology.sessions, 3);
+        assert_eq!(topology.busy, 2);
+        assert_eq!(topology.groups, 2);
+        assert_eq!(topology.focused, Some("lead"));
+    }
 
     #[test]
     fn missing_cache_telemetry_stays_unknown() {

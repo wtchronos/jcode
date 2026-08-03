@@ -1018,6 +1018,35 @@ fn working() -> Model {
 
 fn living_hud_base() -> Model {
     let mut model = background_progress();
+    model.strip = crate::strip::Strip::build(
+        vec![
+            crate::strip::Entry {
+                session_id: "lead".into(),
+                working_dir: Some("/work/jcode".into()),
+                busy: true,
+                weight: 18.0,
+            },
+            crate::strip::Entry {
+                session_id: "tests".into(),
+                working_dir: Some("/work/jcode".into()),
+                busy: true,
+                weight: 8.0,
+            },
+            crate::strip::Entry {
+                session_id: "review".into(),
+                working_dir: Some("/work/jcode".into()),
+                busy: false,
+                weight: 5.0,
+            },
+            crate::strip::Entry {
+                session_id: "docs".into(),
+                working_dir: Some("/work/harness".into()),
+                busy: false,
+                weight: 3.0,
+            },
+        ],
+        Some("lead"),
+    );
     model.hud.record_usage(42_800, 3_100, Some(38_948));
     model
         .hud

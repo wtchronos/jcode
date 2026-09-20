@@ -151,6 +151,15 @@ impl BridgeState {
                 self.pending_simple.push((id, api_id, SimpleKind::Ok));
                 vec![Outbound::Legacy(json!({"type": "cancel", "id": id}))]
             }
+            "set_model" => {
+                let id = self.legacy_id();
+                self.pending_simple.push((id, api_id, SimpleKind::Ok));
+                vec![Outbound::Legacy(json!({
+                    "type": "set_model",
+                    "id": id,
+                    "model": request["model"].as_str().unwrap_or(""),
+                }))]
+            }
             "soft_interrupt" => {
                 let id = self.legacy_id();
                 self.pending_simple.push((id, api_id, SimpleKind::Ok));
@@ -402,6 +411,7 @@ impl BridgeState {
                     session_id: session(self),
                     provider: event["provider_name"].as_str().map(str::to_string),
                     model: event["model"].as_str().map(str::to_string),
+                    available_models: vec![],
                 })]
             }
             "available_models_updated" => {
@@ -476,6 +486,15 @@ impl BridgeState {
             session_id,
             provider: event["provider_name"].as_str().map(str::to_string),
             model: event["provider_model"].as_str().map(str::to_string),
+            available_models: event["available_models"]
+                .as_array()
+                .map(|models| {
+                    models
+                        .iter()
+                        .filter_map(|model| model.as_str().map(str::to_string))
+                        .collect()
+                })
+                .unwrap_or_default(),
         }
     }
 

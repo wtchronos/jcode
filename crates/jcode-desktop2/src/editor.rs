@@ -239,6 +239,9 @@ impl Editor {
 
     /// Ctrl+W / Alt+Backspace: delete the word before the cursor.
     pub fn delete_word_back(&mut self) {
+        if self.delete_selection().is_some() {
+            return;
+        }
         let start = self.word_back();
         if start == self.cursor {
             return;
@@ -250,6 +253,9 @@ impl Editor {
 
     /// Alt+D: delete the word after the cursor.
     pub fn delete_word_forward(&mut self) {
+        if self.delete_selection().is_some() {
+            return;
+        }
         let end = self.word_forward();
         if end == self.cursor {
             return;
@@ -1113,6 +1119,27 @@ mod selection_tests {
             );
             assert_eq!(editor.cursor(), 0);
         }
+    }
+
+    #[test]
+    fn word_delete_replaces_the_selection_without_stale_offsets() {
+        let mut editor = Editor::with_text("hello world");
+        editor.set_cursor(editor.text().len());
+        editor.extend_to(6);
+        editor.delete_word_back();
+        assert_eq!(editor.text(), "hello ");
+        assert_eq!(editor.selection(), None);
+        editor.delete_back();
+        assert_eq!(editor.text(), "hello");
+
+        let mut editor = Editor::with_text("hello world");
+        editor.set_cursor(0);
+        editor.extend_to(5);
+        editor.delete_word_forward();
+        assert_eq!(editor.text(), " world");
+        assert_eq!(editor.selection(), None);
+        editor.delete_back();
+        assert_eq!(editor.text(), " world");
     }
 
     #[test]

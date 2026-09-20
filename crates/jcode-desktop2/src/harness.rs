@@ -30,6 +30,7 @@ pub enum HarnessUpdate {
     Model {
         provider: Option<String>,
         model: Option<String>,
+        available_models: Vec<String>,
     },
     Text(String),
     /// Streamed reasoning. Kept a separate variant from `Text` so the UI can
@@ -90,6 +91,8 @@ pub enum Command {
     Attach(String),
     /// Fetch the tail of another session without attaching to it.
     Peek(String),
+    /// Change the model serving the attached session.
+    SetModel(String),
 }
 
 /// The API socket both this app and the bridge agree on. Shared with the
@@ -352,6 +355,16 @@ fn run(
                         session_id: target,
                         limit: None,
                     },
+                    Command::SetModel(model) => {
+                        let session = session_id.lock().map(|s| s.clone()).unwrap_or_default();
+                        if session.is_empty() {
+                            continue;
+                        }
+                        ApiRequest::SetModel {
+                            session_id: session,
+                            model,
+                        }
+                    }
                 };
                 let frame = ClientFrame::new(writer_ids.fetch_add(1, Ordering::Relaxed), request);
                 if write_frame(&mut writer_stream, &frame).is_err() {
@@ -518,8 +531,15 @@ fn run(
                 ));
             }
             ApiEvent::ModelInfo {
-                provider, model, ..
-            } => send(HarnessUpdate::Model { provider, model }),
+                provider,
+                model,
+                available_models,
+                ..
+            } => send(HarnessUpdate::Model {
+                provider,
+                model,
+                available_models,
+            }),
             // A peek's reply. History for the *attached* session arrives on
             // this event too, but the desktop asks for that only to learn the
             // session set, so treating every one as a peek is correct: the

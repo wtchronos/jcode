@@ -41,6 +41,9 @@ pub enum ApiRequest {
     /// Cancel the in-flight generation.
     Cancel { session_id: String },
 
+    /// Change the model serving the attached session.
+    SetModel { session_id: String, model: String },
+
     /// Inject a message at the next safe point without cancelling.
     SoftInterrupt {
         session_id: String,

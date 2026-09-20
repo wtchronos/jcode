@@ -54,6 +54,20 @@ fn clicking_the_gear_opens_and_shuts_the_panel() {
 }
 
 #[test]
+fn clicking_the_model_caption_opens_the_model_picker() {
+    let mut app = app();
+    app.model.model = Some(crate::ModelId {
+        provider: Some("openai".into()),
+        model: Some("gpt-5.6-sol".into()),
+    });
+    app.model.available_models = vec!["gpt-5.6-sol".into(), "gpt-5.6-luna".into()];
+    let point = app.frame.model_caption_hit_target().center();
+    app.pointer = (point.x, point.y);
+    app.on_pointer_pressed();
+    assert!(app.model.model_panel.is_open());
+}
+
+#[test]
 fn a_click_off_the_panel_only_dismisses_it() {
     // A dismiss that also acted on whatever was underneath would mean the
     // safest way to close a menu is not safe: aiming at the paper to shut it

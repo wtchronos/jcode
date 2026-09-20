@@ -145,6 +145,9 @@ pub enum ApiEvent {
         /// Model id, e.g. `claude-sonnet-4-20250514`.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         model: Option<String>,
+        /// Models currently available to this session.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        available_models: Vec<String>,
     },
 
     /// Forward-compatibility catch-all: clients must skip this silently.

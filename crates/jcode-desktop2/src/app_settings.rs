@@ -9,12 +9,61 @@ use crate::App;
 use crate::settings::{ROWS, Row};
 
 impl App {
+    /// A press on the model caption or its open picker.
+    pub(crate) fn model_press(&mut self, x: f64, y: f64) -> bool {
+        let rows = self
+            .model
+            .available_models
+            .len()
+            .min(self.frame.panel_capacity());
+        if self.frame.hits_model_caption(x, y) && self.model.model.is_some() && rows > 0 {
+            self.model.panel.close();
+            self.model.model_panel.toggle();
+            self.request_redraw();
+            return true;
+        }
+        if !self.model.model_panel.is_open() {
+            return false;
+        }
+        match self.frame.panel_row_at(rows, x, y) {
+            Some(index) => self.select_model(index),
+            None => self.model.model_panel.close(),
+        }
+        self.request_redraw();
+        true
+    }
+
+    pub(crate) fn model_hover(&mut self, x: f64, y: f64) -> bool {
+        if !self.model.model_panel.is_open() {
+            return false;
+        }
+        let rows = self
+            .model
+            .available_models
+            .len()
+            .min(self.frame.panel_capacity());
+        let row = self.frame.panel_row_at(rows, x, y);
+        self.model.model_panel.set_hover(row)
+    }
+
+    fn select_model(&mut self, index: usize) {
+        let Some(model) = self.model.available_models.get(index).cloned() else {
+            return;
+        };
+        if let Some((_, outgoing)) = self.harness.as_ref() {
+            let _ = outgoing.send(crate::harness::Command::SetModel(model.clone()));
+        }
+        self.model.model_panel.close();
+        self.model.notice = Some(format!("switching to {model}"));
+    }
+
     /// A press somewhere on the page, while the settings UI might want it.
     /// Returns whether it was consumed, so the caller's own hit testing (the
     /// composer, the transcript, the donut) only runs when the gear did not
     /// take the click.
     pub(crate) fn settings_press(&mut self, x: f64, y: f64) -> bool {
         if self.frame.hits_gear(x, y) {
+            self.model.model_panel.close();
             self.model.panel.toggle();
             self.request_redraw();
             return true;

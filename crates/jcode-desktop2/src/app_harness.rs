@@ -56,8 +56,15 @@ impl App {
                     self.model.working_dir = working_dir;
                     self.retitle();
                 }
-                harness::HarnessUpdate::Model { provider, model } => {
+                harness::HarnessUpdate::Model {
+                    provider,
+                    model,
+                    available_models,
+                } => {
                     self.model.model = Some(ModelId { provider, model });
+                    if !available_models.is_empty() {
+                        self.model.available_models = available_models;
+                    }
                 }
                 harness::HarnessUpdate::Text(text) => {
                     self.model.transcript.append_assistant(&text);

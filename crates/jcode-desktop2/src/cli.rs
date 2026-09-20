@@ -299,6 +299,7 @@ fn run_e2e(message: &str) -> Result<()> {
             harness::HarnessUpdate::Model {
                 provider,
                 model: id,
+                ..
             } => {
                 println!("[e2e] model: {provider:?} {id:?}");
                 model.model = Some(ModelId {

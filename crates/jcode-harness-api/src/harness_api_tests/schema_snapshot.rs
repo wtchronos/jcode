@@ -71,6 +71,10 @@ fn request_roundtrip() {
         ApiRequest::Cancel {
             session_id: "s1".into(),
         },
+        ApiRequest::SetModel {
+            session_id: "s1".into(),
+            model: "gpt-5.6-luna".into(),
+        },
         ApiRequest::PermissionResponse {
             session_id: "s1".into(),
             request_id: "p1".into(),

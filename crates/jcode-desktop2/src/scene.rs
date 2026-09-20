@@ -495,6 +495,62 @@ fn draw_settings_panel(
     }
 }
 
+fn draw_model_panel(
+    scene: &mut Scene,
+    text: &mut text::TextSystem,
+    model: &Model,
+    frame: &layout::Frame,
+    scale: f64,
+) {
+    let rows = model.available_models.len().min(frame.panel_capacity());
+    if rows == 0 {
+        return;
+    }
+    let theme = &model.theme;
+    let panel = frame.panel(rows);
+    scene.fill(
+        vello::peniko::Fill::NonZero,
+        Affine::scale(scale),
+        theme.field,
+        None,
+        &RoundedRect::from_rect(panel, layout::PANEL_RADIUS),
+    );
+    scene.stroke(
+        &vello::kurbo::Stroke::new(layout::COMPOSER_BORDER),
+        Affine::scale(scale),
+        theme.field_border,
+        None,
+        &RoundedRect::from_rect(panel, layout::PANEL_RADIUS),
+    );
+    for (index, name) in model.available_models.iter().take(rows).enumerate() {
+        let band = frame.panel_row(rows, index);
+        let selected = model.model.as_ref().and_then(|id| id.model.as_deref()) == Some(name);
+        if model.model_panel.hover() == Some(index) || selected {
+            scene.fill(
+                vello::peniko::Fill::NonZero,
+                Affine::scale(scale),
+                theme.wash,
+                None,
+                &RoundedRect::from_rect(band, layout::PANEL_RADIUS / 2.0),
+            );
+        }
+        let baseline = band.y0 + (band.height() - f64::from(layout::CAPTION_SIZE) * 1.4) / 2.0;
+        text.draw_paragraph_scaled(
+            scene,
+            name,
+            (band.x0 + layout::PANEL_TEXT_PAD, baseline),
+            (band.width() - layout::PANEL_TEXT_PAD * 2.0).max(1.0) as f32,
+            ParagraphStyle {
+                font_size: layout::CAPTION_SIZE,
+                color: theme.text,
+                letter_spacing_em: 0.05,
+                ..Default::default()
+            },
+            scale,
+        );
+    }
+}
+
 /// Body paragraph style for transcript prose. One definition, so measuring in
 /// [`crate::viewport`] and drawing here can never disagree.
 pub fn transcript_body_style(model: &Model) -> ParagraphStyle {
@@ -1344,6 +1400,9 @@ pub fn build_scene(
     // and before the mode that would replace the whole window.
     if model.panel.is_open() {
         draw_settings_panel(scene, text, model, &frame, scale);
+    }
+    if model.model_panel.is_open() {
+        draw_model_panel(scene, text, model, &frame, scale);
     }
 
     // The session overview sits over everything: it is a mode, not a panel,

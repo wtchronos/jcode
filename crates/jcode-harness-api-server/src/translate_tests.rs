@@ -269,6 +269,42 @@ fn a_model_change_is_forwarded() {
     }
 }
 
+#[test]
+fn set_model_maps_to_the_legacy_model_command() {
+    let mut state = state_with_session();
+    let out = state.api_request_to_legacy(&json!({
+        "req": "set_model", "id": 12, "session_id": "s1", "model": "gpt-5.6-luna",
+    }));
+    let Outbound::Legacy(request) = &out[0] else {
+        panic!("expected a legacy model request");
+    };
+    assert_eq!(request["type"], "set_model");
+    assert_eq!(request["model"], "gpt-5.6-luna");
+}
+
+#[test]
+fn model_info_carries_the_available_catalog() {
+    let mut state = BridgeState::default();
+    let out = state.api_request_to_legacy(&json!({"req": "create_session", "id": 7}));
+    let Outbound::Legacy(catalog) = &out[2] else {
+        panic!("expected a legacy catalog probe");
+    };
+    let catalog_id = catalog["id"].as_u64().unwrap();
+    let frames = state.legacy_event_to_api(&json!({
+        "type": "history", "id": catalog_id, "messages": [],
+        "provider_name": "openai", "provider_model": "gpt-5.6-sol",
+        "available_models": ["gpt-5.6-sol", "gpt-5.6-luna"],
+    }));
+    match &frames[0].event {
+        ApiEvent::ModelInfo {
+            available_models, ..
+        } => {
+            assert_eq!(available_models, &["gpt-5.6-sol", "gpt-5.6-luna"]);
+        }
+        other => panic!("unexpected: {other:?}"),
+    }
+}
+
 /// A failed model change must not be reported as the active model.
 #[test]
 fn a_failed_model_change_is_not_reported() {

@@ -510,6 +510,28 @@ impl Frame {
         vello::kurbo::Rect::new(panel.x0, top, panel.x1, top + PANEL_ROW_HEIGHT)
     }
 
+    /// Maximum number of menu rows that fit in this window.
+    pub fn panel_capacity(&self) -> usize {
+        ((self.height - PANEL_PAD * 2.0) / PANEL_ROW_HEIGHT)
+            .floor()
+            .max(1.0) as usize
+    }
+
+    /// Generous clickable trailing half of the model caption row.
+    pub fn model_caption_hit_target(&self) -> vello::kurbo::Rect {
+        vello::kurbo::Rect::new(
+            (self.left + self.right) / 2.0,
+            self.footnote_top,
+            self.right,
+            self.footnote_bottom,
+        )
+    }
+
+    pub fn hits_model_caption(&self, x: f64, y: f64) -> bool {
+        self.model_caption_hit_target()
+            .contains(vello::kurbo::Point::new(x, y))
+    }
+
     /// Whether a logical point is inside the donut, used for drag hit-testing.
     /// Circular, not the bounding box, so clicks in the corners still reach
     /// whatever is behind it.

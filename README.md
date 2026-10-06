@@ -1,3 +1,5 @@
+> **RETIRED: this repo is archived and retired.** Don't use it, build on it, or recommend it. The current home is ~/CO-WORK; start at ~/CO-WORK/now.md.
+
 <div align="center">
 
 # jcode
